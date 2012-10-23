@@ -171,10 +171,11 @@ Connect() {
 }
 
 public OnSocketConnected(Handle:socket, any:arg) {
-	decl String:hostname[256], String:realname[64], String:ServerIp[16];
+	decl String:hostname[256], String:realname[64], String:ServerIp[16], String:password[IRC_CHANNEL_MAXLEN];
 	KvJumpToKey(kv, "Server");
 	KvGetString(kv, "nickname", g_nick, sizeof(g_nick), "SourceIRC");
 	KvGetString(kv, "realname", realname, sizeof(realname), "SourceIRC - http://Azelphur.com/project/sourceirc");
+	KvGetString(kv, "password", password, sizeof(password), "");
 	KvRewind(kv);
 	SocketGetHostName(hostname, sizeof(hostname));
 
@@ -183,6 +184,9 @@ public OnSocketConnected(Handle:socket, any:arg) {
                                                           (iIp >> 16) & 0x000000FF,
                                                           (iIp >>  8) & 0x000000FF,
                                                           iIp         & 0x000000FF);
+
+	if (!StrEqual(password, ""))
+		IRC_Send("PASS %s", password);
 	IRC_Send("NICK %s", g_nick);
 	IRC_Send("USER %s %s %s :%s", g_nick, hostname, ServerIp, realname);
 }
@@ -192,11 +196,11 @@ public OnSocketReceive(Handle:socket, String:receiveData[], const dataSize, any:
 	decl String:line[IRC_MAXLEN];
 	decl String:prefix[IRC_MAXLEN];
 	decl String:trailing[IRC_MAXLEN];
-    
+
 	static Handle:args = INVALID_HANDLE;
-    if (args == INVALID_HANDLE) {
-        args = CreateArray(IRC_MAXLEN);
-    }
+	if (args == INVALID_HANDLE) {
+		args = CreateArray(IRC_MAXLEN);
+	}
     
 	while (startpos < dataSize) {
 		startpos += SplitString(receiveData[startpos], "\n", line, sizeof(line));
@@ -286,7 +290,7 @@ HandleLine(String:prefix[], Handle:args) {
 		new Handle:connected = CreateGlobalForward("IRC_Connected", ET_Ignore);
 		Call_StartForward(connected);
 		Call_Finish();
-        CloseHandle(connected);
+		CloseHandle(connected);
 	}
 	for (new i = 0; i < GetArraySize(Events); i++) { // Push events to plugins that have hooked them.
 		GetArrayString(Events, i, ev, sizeof(ev));
@@ -299,7 +303,7 @@ HandleLine(String:prefix[], Handle:args) {
 			Call_PushString(prefix);
 			Call_PushCell(GetArraySize(cmdargs)-1);
 			Call_Finish(_:result);
-            CloseHandle(f);
+			CloseHandle(f);
 			if (result == Plugin_Stop)
 				return;	
 		}
@@ -376,7 +380,7 @@ RunCommand(const String:hostmask[], const String:message[]) {
 				Call_PushString(nick);
 				Call_PushCell(GetArraySize(cmdargs)-1);
 				Call_Finish(_:result);
-                CloseHandle(f);
+				CloseHandle(f);
 				ClearArray(cmdargs);
 				if (result == Plugin_Handled)
 					IsPlugin_Handled = true;
@@ -399,10 +403,15 @@ public IRC_Connected() {
 	}
 	else {
 		decl String:channel[IRC_CHANNEL_MAXLEN];
+		decl String:password[IRC_CHANNEL_MAXLEN];
 		do
 		{
 			KvGetSectionName(kv, channel, sizeof(channel));
-			IRC_Send("JOIN %s", channel);
+			KvGetString(kv, "password", password, sizeof(password), "");
+			if (StrEqual(password, ""))
+				IRC_Send("JOIN %s", channel);
+			else
+				IRC_Send("JOIN %s %s", channel, password);
 		} while (KvGotoNextKey(kv));
 	}
 	KvRewind(kv);
@@ -619,7 +628,7 @@ public N_IRC_GetUserFlagBits(Handle:plugin, numParams) {
 	Call_PushString(hostmask);
 	Call_PushCellRef(resultflag);
 	Call_Finish();
-    CloseHandle(f);
+	CloseHandle(f);
 	return _:resultflag;
 }
 
