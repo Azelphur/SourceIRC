@@ -76,7 +76,7 @@ public Action:Event_PlayerSay(Handle:event, const String:name[], bool:dontBroadc
 	decl String:result[IRC_MAXLEN], String:message[256];
 	result[0] = '\0';
 	GetEventString(event, "text", message, sizeof(message));
-	if (!IsPlayerAlive(client))
+	if (client != 0 && !IsPlayerAlive(client))
 		StrCat(result, sizeof(result), "*DEAD* ");
 	if (g_isteam)
 		StrCat(result, sizeof(result), "(TEAM) ");
