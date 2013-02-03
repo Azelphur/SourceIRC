@@ -300,7 +300,6 @@ stock SayText2All(clientid4team, const String:message[])
 		BfWriteByte(hBf, 0); 
 		BfWriteString(hBf, message);
 	}
-	
 	EndMessage();
 }
 
