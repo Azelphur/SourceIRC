@@ -22,6 +22,15 @@
 new g_userid = 0;
 
 new bool:g_isteam = false;
+enum GameType
+{
+        game_unknown,
+        game_cstrike,
+        game_tf2,
+	game_l4d2,
+	game_csgo
+};
+new GameType:gametype = game_unknown;
 
 public Plugin:myinfo = {
 	name = "SourceIRC -> Relay All",
@@ -43,6 +52,11 @@ public OnPluginStart() {
 	RegConsoleCmd("say_team", Command_SayTeam);
 
 	LoadTranslations("sourceirc.phrases");
+	
+	new String:game[64];
+	GetGameFolderName(game, sizeof(game));
+	if(strcmp(game, "csgo") == 0)
+		gametype = game_csgo;
 }
 
 public OnAllPluginsLoaded() {
@@ -61,7 +75,84 @@ IRC_Loaded() {
 }
 
 public Action:Command_Say(client, args) {
-	g_isteam = false; // Ugly hack to get around player_chat event not working.
+	//g_isteam = false; // Ugly hack to get around player_chat event not working.
+	if (gametype != game_csgo)
+		return Plugin_Continue;
+		
+	if ((client != 0) && IsClientInGame(client))
+    {
+
+		decl String:msgText[256];
+		msgText[0] = '\0';
+		
+		GetCmdArg(1, msgText, sizeof(msgText));
+		
+		if (msgText[0] == '/' || msgText[0] == '\0')
+			return Plugin_Continue;
+		
+		else
+		{    
+			if(GetClientTeam(client) == 1)
+			{
+				PrintToChatAll("\x01\x0B\x01*SPEC* \x04[Admin] \x01%N : %s",client, msgText);
+				return Plugin_Handled;
+			}
+				
+			else
+			{
+				new String:name[50];
+				GetClientName(client, name, sizeof(name));
+			
+				if(IsPlayerAlive(client))
+				{    
+					Format(msgText, sizeof(msgText), "\x01\x0B\x04[Admin] \x03%s : %s", name, msgText);
+				}
+				else
+				{                        
+					Format(msgText, sizeof(msgText), "\x01\x0B\x03*DEAD* \x04[Admin] \x03%s : %s", name, msgText);
+				}
+				
+				/*
+				for (new i = 1, iClients = GetClientCount(); i <= iClients; i++) 
+				{
+					if (IsClientInGame(i) && !IsFakeClient(i)) 
+					{
+						SayText2(i, msgText);
+					}
+				}
+				
+				return Plugin_Handled;
+			}
+		}
+    }
+    
+	*/
+	decl String:message[256];
+	GetCmdArg(1, message, sizeof(message));
+	decl String:result[IRC_MAXLEN];
+	result[0] = '\0';
+	//GetEventString(event, "text", message, sizeof(message));
+	if (client != 0) 
+	{
+		if(!IsPlayerAlive(client))
+			StrCat(result, sizeof(result), "*DEAD* ");
+		//if (g_isteam)
+		//	StrCat(result, sizeof(result), "(TEAM) ");
+			
+		new team
+		if (client != 0)
+			team = IRC_GetTeamColor(GetClientTeam(client));
+		else
+			team = 0;
+		if (team == -1)
+			Format(result, sizeof(result), "%s%N: %s", result, client, message);
+		else
+			Format(result, sizeof(result), "%s\x03%02d%N\x03: %s", result, team, client, message);
+
+		IRC_MsgFlaggedChannels("relay", result);
+		//return Plugin_Handled;
+	}
+    return Plugin_Continue;
 }
 
 public Action:Command_SayTeam(client, args) {
@@ -103,7 +194,7 @@ public OnClientAuthorized(client, const String:auth[]) { // We are hooking this 
 	decl String:playername[MAX_NAME_LENGTH], String:result[IRC_MAXLEN];
 	GetClientName(client, playername, sizeof(playername));
 	Format(result, sizeof(result), "%t", "Player Connected", playername, auth, userid);
-	if (!StrEqual(result, ""))
+	if (!StrEqual(result, "") && (auth[0] != 'B')) 
 		IRC_MsgFlaggedChannels("relay", result);
 	return true;
 }
@@ -122,7 +213,7 @@ public Action:Event_PlayerDisconnect(Handle:event, const String:name[], bool:don
 				RemoveChar(reason, sizeof(reason), i);
 		}
 		Format(result, sizeof(result), "%t", "Player Disconnected", playername, auth, userid, reason);
-		if (!StrEqual(result, ""))
+		if (!StrEqual(result, "") && (auth[0] != 'B')) // Do not relay when bots disconnect!
 			IRC_MsgFlaggedChannels("relay", result);
 	}
 }
@@ -163,7 +254,7 @@ public Action:Command_Me(client, args) {
 	else
 		IRC_MsgFlaggedChannels("relay", "* \x03%02d%s\x03 %s", team, name, Args);
 	Format(text, sizeof(text), "\x01* \x03%s\x01 %s", name, Args);
-	SayText2All(client, text);
+	//SayText2All(client, text);
 	return Plugin_Handled;
 }
 
@@ -192,13 +283,24 @@ stock SayText2All(clientid4team, const String:message[])
 {
 	new Handle:hBf;
 	hBf = StartMessageAll("SayText2");
-	if (hBf != INVALID_HANDLE)
+	    
+	if (GetUserMessageType() == UM_Protobuf)
 	{
+		PbSetBool(hBf, "chat", true);
+		PbSetInt(hBf, "ent_idx", clientid4team);
+		PbSetString(hBf, "msg_name", message);
+		PbAddString(hBf, "params", ""); 
+		PbAddString(hBf, "params", ""); 
+		PbAddString(hBf, "params", ""); 
+		PbAddString(hBf, "params", ""); 
+	}
+	else
+	{        
 		BfWriteByte(hBf, clientid4team); 
 		BfWriteByte(hBf, 0); 
 		BfWriteString(hBf, message);
-		EndMessage();
 	}
+	EndMessage();
 }
 
 public OnPluginEnd() {
