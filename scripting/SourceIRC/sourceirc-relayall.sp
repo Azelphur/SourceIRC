@@ -27,8 +27,8 @@ enum GameType
         game_unknown,
         game_cstrike,
         game_tf2,
-		game_l4d2,
-		game_csgo
+	game_l4d2,
+	game_csgo
 };
 new GameType:gametype = game_unknown;
 
@@ -76,7 +76,7 @@ IRC_Loaded() {
 
 public Action:Command_Say(client, args) {
 	//g_isteam = false; // Ugly hack to get around player_chat event not working.
-	if (game != game_csgo)
+	if (gametype != game_csgo)
 		return Plugin_Continue;
 		
 	if ((client != 0) && IsClientInGame(client))
