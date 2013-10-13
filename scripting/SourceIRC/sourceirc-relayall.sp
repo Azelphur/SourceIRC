@@ -32,7 +32,6 @@ public Plugin:myinfo = {
 };
 
 public OnPluginStart() {	
-	RegConsoleCmd("me", Command_Me);
 	HookEvent("player_disconnect", Event_PlayerDisconnect, EventHookMode_Post);
 	HookEvent("player_changename", Event_PlayerChangeName, EventHookMode_Post);
 	HookEvent("player_say", Event_PlayerSay, EventHookMode_Post);
@@ -152,21 +151,6 @@ public OnMapStart() {
 	IRC_MsgFlaggedChannels("relay", "%t", "Map Changed", map);
 }
 
-public Action:Command_Me(client, args) {
-	decl String:Args[256], String:name[64], String:auth[64], String:text[512];
-	GetCmdArgString(Args, sizeof(Args));
-	GetClientName(client, name, sizeof(name));
-	GetClientAuthString(client, auth, sizeof(auth));
-	new team = IRC_GetTeamColor(GetClientTeam(client));
-	if (team == -1)
-		IRC_MsgFlaggedChannels("relay", "* %s %s", name, Args);
-	else
-		IRC_MsgFlaggedChannels("relay", "* \x03%02d%s\x03 %s", team, name, Args);
-	Format(text, sizeof(text), "\x01* \x03%s\x01 %s", name, Args);
-	SayText2All(client, text);
-	return Plugin_Handled;
-}
-
 public Action:Event_PRIVMSG(const String:hostmask[], args) {
 	decl String:channel[64];
 	IRC_GetEventArg(1, channel, sizeof(channel));
@@ -185,19 +169,6 @@ public Action:Event_PRIVMSG(const String:hostmask[], args) {
 			IRC_StripGame(text, sizeof(text)); // Strip Game color codes
 			PrintToChatAll("\x01[\x04IRC\x01] %s :  %s", nick, text);
 		}
-	}
-}
-
-stock SayText2All(clientid4team, const String:message[])
-{
-	new Handle:hBf;
-	hBf = StartMessageAll("SayText2");
-	if (hBf != INVALID_HANDLE)
-	{
-		BfWriteByte(hBf, clientid4team); 
-		BfWriteByte(hBf, 0); 
-		BfWriteString(hBf, message);
-		EndMessage();
 	}
 }
 
