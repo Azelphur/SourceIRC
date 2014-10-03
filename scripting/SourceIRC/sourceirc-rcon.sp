@@ -100,7 +100,7 @@ public OnSocketReceive(Handle:socket, String:receiveData[], const dataSize, any:
 		if (serverdata == 0 && requestid > 1) {
 			decl String:lines[64][256];
 			new linecount = ExplodeString(receiveData[i+12], "\n", lines, sizeof(lines), sizeof(lines[]));
-			for (new l = 0; l <= linecount; l++) {
+			for (new l = 0; l < linecount; l++) {
 				IRC_ReplyToCommand(greplynick, "%s", lines[l]);
 			}
 			busy = false;
