@@ -94,17 +94,17 @@ public Action:Event_PlayerSay(Handle:event, const String:name[], bool:dontBroadc
 }
 
 
-public OnClientAuthorized(client, const String:auth[]) { // We are hooking this instead of the player_connect event as we want the steamid
+public void OnClientAuthorized(client, const String:auth[]) { // We are hooking this instead of the player_connect event as we want the steamid
 	new userid = GetClientUserId(client);
 	if (userid <= g_userid) // Ugly hack to get around mass connects on map change
-		return true;
+		return;
 	g_userid = userid;
 	decl String:playername[MAX_NAME_LENGTH], String:result[IRC_MAXLEN];
 	GetClientName(client, playername, sizeof(playername));
 	Format(result, sizeof(result), "%t", "Player Connected", playername, auth, userid);
 	if (!StrEqual(result, ""))
 		IRC_MsgFlaggedChannels("relay", result);
-	return true;
+	return;
 }
 
 public Action:Event_PlayerDisconnect(Handle:event, const String:name[], bool:dontBroadcast)
