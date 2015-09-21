@@ -52,6 +52,9 @@ new String:cmdhostmask[IRC_MAXLEN];
 // Are we connected yet?
 new bool:g_connected;
 
+// Debug mode.
+new g_debug;
+
 // My nickname
 new String:g_nick[IRC_NICK_MAXLEN];
 
@@ -155,6 +158,7 @@ LoadConfigs() {
 	FileToKeyValues(kv, file);
 	KvJumpToKey(kv, "Settings");
 	messagerate = KvGetFloat(kv, "msg-rate", 2.0);
+    g_debug = KvGetNum(kv, "debug", 0);
 	KvRewind(kv);
 }
 
@@ -218,6 +222,8 @@ public OnSocketReceive(Handle:socket, String:receiveData[], const dataSize, any:
 		if (line[strlen(line)-1] == '\r')
 			line[strlen(line)-1] = '\x00';
 		prefix[0] = '\x00';
+        if (g_debug)
+            LogMessage("RECV %s", line);
 		if (line[0] == ':')
 			Split(line[1], " ", prefix, sizeof(prefix), line, sizeof(line));
 		if (StrContains(line, " :") != -1) { 
@@ -648,6 +654,8 @@ public N_IRC_Send(Handle:plugin, numParams) {
 		messagetimer = CreateTimer(messagerate, MessageTimerCB);
 	}
 	Format(buffer, sizeof(buffer), "%s\r\n", buffer);
+    if (g_debug)
+        LogMessage("SEND %s", buffer);
 	SocketSend(gsocket, buffer);
 }
 
