@@ -23,6 +23,8 @@ new g_userid = 0;
 
 new bool:g_isteam = false;
 
+new bool:g_bShowIRC[MAXPLAYERS+1];
+
 public Plugin:myinfo = {
 	name = "SourceIRC -> Relay All",
 	author = "Azelphur",
@@ -32,7 +34,6 @@ public Plugin:myinfo = {
 };
 
 public OnPluginStart() {	
-	HookEvent("player_disconnect", Event_PlayerDisconnect, EventHookMode_Post);
 	HookEvent("player_changename", Event_PlayerChangeName, EventHookMode_Post);
 	HookEvent("player_say", Event_PlayerSay, EventHookMode_Post);
 	HookEvent("player_chat", Event_PlayerSay, EventHookMode_Post);
@@ -40,6 +41,7 @@ public OnPluginStart() {
 	RegConsoleCmd("say", Command_Say);
 	RegConsoleCmd("say2", Command_Say);
 	RegConsoleCmd("say_team", Command_SayTeam);
+  	RegConsoleCmd("sm_irc", cmdIRC, "Toggles IRC chat");
 
 	LoadTranslations("sourceirc.phrases");
 }
@@ -52,6 +54,10 @@ public OnAllPluginsLoaded() {
 public OnLibraryAdded(const String:name[]) {
 	if (StrEqual(name, "sourceirc"))
 		IRC_Loaded();
+}
+
+public OnClientDisconnect(iClient) {
+  	g_bShowIRC[iClient] = true;
 }
 
 IRC_Loaded() {
@@ -75,6 +81,10 @@ public Action:Event_PlayerSay(Handle:event, const String:name[], bool:dontBroadc
 	decl String:result[IRC_MAXLEN], String:message[256];
 	result[0] = '\0';
 	GetEventString(event, "text", message, sizeof(message));
+	if (message[0] == '!') {
+    return Plugin_Continue;
+	}
+
 	if (client != 0 && !IsPlayerAlive(client))
 		StrCat(result, sizeof(result), "*DEAD* ");
 	if (g_isteam)
@@ -107,24 +117,6 @@ public void OnClientAuthorized(client, const String:auth[]) { // We are hooking 
 	return;
 }
 
-public Action:Event_PlayerDisconnect(Handle:event, const String:name[], bool:dontBroadcast)
-{
-	new userid = GetEventInt(event, "userid");
-	new client = GetClientOfUserId(userid);
-	if (client != 0) {
-		decl String:reason[128], String:playername[MAX_NAME_LENGTH], String:auth[64], String:result[IRC_MAXLEN];
-		GetEventString(event, "reason", reason, sizeof(reason));
-		GetClientName(client, playername, sizeof(playername));
-		GetClientAuthString(client, auth, sizeof(auth));
-		for (new i = 0; i <= strlen(reason); i++) { // For some reason, certain disconnect reasons have \n in them, so i'm stripping them. Silly valve.
-			if (reason[i] == '\n')
-				RemoveChar(reason, sizeof(reason), i);
-		}
-		Format(result, sizeof(result), "%t", "Player Disconnected", playername, auth, userid, reason);
-		if (!StrEqual(result, ""))
-			IRC_MsgFlaggedChannels("relay", result);
-	}
-}
 
 public Action:Event_PlayerChangeName(Handle:event, const String:name[], bool:dontBroadcast)
 {
@@ -146,9 +138,16 @@ public OnMapEnd() {
 }
 
 public OnMapStart() {
+	
+	for (int i=1; i<=MAXPLAYERS; i++) {
+        g_bShowIRC[i] = true;
+    }
+
+
 	decl String:map[128];
 	GetCurrentMap(map, sizeof(map));
 	IRC_MsgFlaggedChannels("relay", "%t", "Map Changed", map);
+	
 }
 
 public Action:Event_PRIVMSG(const String:hostmask[], args) {
@@ -162,16 +161,36 @@ public Action:Event_PRIVMSG(const String:hostmask[], args) {
 			text[strlen(text)-1] = '\x00';
 			IRC_Strip(text, sizeof(text)); // Strip IRC Color Codes
 			IRC_StripGame(text, sizeof(text)); // Strip Game color codes
-			PrintToChatAll("\x01[\x04IRC\x01] * %s %s", nick, text[7]);
+      
+	for (new i=1; i<=MaxClients; i++) {
+        if (IsClientInGame(i) && !IsFakeClient(i) && g_bShowIRC[i]) {
+            PrintToChat(i, "\x01[\x04IRC\x01] * %s %s", nick, text[7]);
+        }
+	}
 		}
 		else {
 			IRC_Strip(text, sizeof(text)); // Strip IRC Color Codes
 			IRC_StripGame(text, sizeof(text)); // Strip Game color codes
-			PrintToChatAll("\x01[\x04IRC\x01] %s :  %s", nick, text);
+      
+	for (new i=1; i<=MaxClients; i++) {
+        if (IsClientInGame(i) && !IsFakeClient(i) && g_bShowIRC[i]) {
+					PrintToChat(i, "\x01[\x04IRC\x01] %s :  %s", nick, text);
+        }
+	}
 		}
 	}
 }
-
+  
+public Action:cmdIRC(iClient, iArgC) {
+    g_bShowIRC[iClient] = !g_bShowIRC[iClient]; // Flip boolean
+    if (g_bShowIRC[iClient]) {
+        ReplyToCommand(iClient, "[SourceIRC] Now listening to IRC chat");
+    } else {
+        ReplyToCommand(iClient, "[SourceIRC] Stopped listening to IRC chat");
+    }
+    
+    return Plugin_Handled;
+}
 public OnPluginEnd() {
 	IRC_CleanUp();
 }
