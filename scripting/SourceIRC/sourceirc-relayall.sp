@@ -19,19 +19,22 @@
 #undef REQUIRE_PLUGIN
 #include <sourceirc>
 
-new g_userid = 0;
+#define PLUGIN_VERSION		"0.2-B"
 
-new bool:g_isteam = false;
+int g_userid = 0;
+bool g_isteam = false;
 
-public Plugin:myinfo = {
+public Plugin myinfo =
+{
 	name = "SourceIRC -> Relay All",
-	author = "Azelphur",
+	author = "Azelphur (Playa Edit)",
 	description = "Relays various game events",
-	version = IRC_VERSION,
-	url = "http://azelphur.com/"
+	version = PLUGIN_VERSION,
+	url = "FunForBattle"
 };
 
-public OnPluginStart() {	
+public OnPluginStart()
+{
 	HookEvent("player_disconnect", Event_PlayerDisconnect, EventHookMode_Post);
 	HookEvent("player_changename", Event_PlayerChangeName, EventHookMode_Post);
 	HookEvent("player_say", Event_PlayerSay, EventHookMode_Post);
@@ -49,7 +52,7 @@ public OnAllPluginsLoaded() {
 		IRC_Loaded();
 }
 
-public OnLibraryAdded(const String:name[]) {
+public OnLibraryAdded(const char[] name) {
 	if (StrEqual(name, "sourceirc"))
 		IRC_Loaded();
 }
@@ -59,28 +62,29 @@ IRC_Loaded() {
 	IRC_HookEvent("PRIVMSG", Event_PRIVMSG);
 }
 
-public Action:Command_Say(client, args) {
+public Action Command_Say(client, args) {
 	g_isteam = false; // Ugly hack to get around player_chat event not working.
 }
 
-public Action:Command_SayTeam(client, args) {
+public Action Command_SayTeam(client, args) {
 	g_isteam = true; // Ugly hack to get around player_chat event not working.
 }
 
-public Action:Event_PlayerSay(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_PlayerSay(Handle event, const char[] name, bool dontBroadcast)
 {
-	new userid = GetEventInt(event, "userid");
-	new client = GetClientOfUserId(userid);
+	int userid = GetEventInt(event, "userid");
+	int client = GetClientOfUserId(userid);
 	
-	decl String:result[IRC_MAXLEN], String:message[256];
+	char result[IRC_MAXLEN], message[256];
 	result[0] = '\0';
 	GetEventString(event, "text", message, sizeof(message));
+	
 	if (client != 0 && !IsPlayerAlive(client))
 		StrCat(result, sizeof(result), "*DEAD* ");
 	if (g_isteam)
 		StrCat(result, sizeof(result), "(TEAM) ");
 		
-	new team
+	int team
 	if (client != 0)
 		team = IRC_GetTeamColor(GetClientTeam(client));
 	else
@@ -89,52 +93,51 @@ public Action:Event_PlayerSay(Handle:event, const String:name[], bool:dontBroadc
 		Format(result, sizeof(result), "%s%N: %s", result, client, message);
 	else
 		Format(result, sizeof(result), "%s\x03%02d%N\x03: %s", result, team, client, message);
-
 	IRC_MsgFlaggedChannels("relay", result);
 }
 
 
-public void OnClientAuthorized(client, const String:auth[]) { // We are hooking this instead of the player_connect event as we want the steamid
-	new userid = GetClientUserId(client);
+public void OnClientAuthorized(client, const char[] auth) { // We are hooking this instead of the player_connect event as we want the steamid
+	int userid = GetClientUserId(client);
 	if (userid <= g_userid) // Ugly hack to get around mass connects on map change
 		return;
 	g_userid = userid;
-	decl String:playername[MAX_NAME_LENGTH], String:result[IRC_MAXLEN];
+	char playername[MAX_NAME_LENGTH], result[IRC_MAXLEN];
 	GetClientName(client, playername, sizeof(playername));
 	Format(result, sizeof(result), "%t", "Player Connected", playername, auth, userid);
 	if (!StrEqual(result, ""))
-		IRC_MsgFlaggedChannels("relay", result);
+		IRC_MsgFlaggedChannels("detail", result);
 	return;
 }
 
-public Action:Event_PlayerDisconnect(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_PlayerDisconnect(Handle event, const char[] name, bool dontBroadcast)
 {
-	new userid = GetEventInt(event, "userid");
-	new client = GetClientOfUserId(userid);
+	int userid = GetEventInt(event, "userid");
+	int client = GetClientOfUserId(userid);
 	if (client != 0) {
-		decl String:reason[128], String:playername[MAX_NAME_LENGTH], String:auth[64], String:result[IRC_MAXLEN];
+		char reason[128], playername[MAX_NAME_LENGTH], auth[64], result[IRC_MAXLEN];
 		GetEventString(event, "reason", reason, sizeof(reason));
 		GetClientName(client, playername, sizeof(playername));
-		GetClientAuthString(client, auth, sizeof(auth));
+		GetClientAuthId(client, AuthId_Engine, auth, sizeof(auth)); //GetClientAuthString(client, auth, sizeof(auth));
 		for (new i = 0; i <= strlen(reason); i++) { // For some reason, certain disconnect reasons have \n in them, so i'm stripping them. Silly valve.
 			if (reason[i] == '\n')
 				RemoveChar(reason, sizeof(reason), i);
 		}
 		Format(result, sizeof(result), "%t", "Player Disconnected", playername, auth, userid, reason);
 		if (!StrEqual(result, ""))
-			IRC_MsgFlaggedChannels("relay", result);
+			IRC_MsgFlaggedChannels("detail", result);
 	}
 }
 
-public Action:Event_PlayerChangeName(Handle:event, const String:name[], bool:dontBroadcast)
+public Action Event_PlayerChangeName(Handle event, const char[] name, bool dontBroadcast)
 {
-	new userid = GetEventInt(event, "userid");
-	new client = GetClientOfUserId(userid);
+	int userid = GetEventInt(event, "userid");
+	int client = GetClientOfUserId(userid);
 	if (client != 0) {
-		decl String:oldname[128], String:newname[MAX_NAME_LENGTH], String:auth[64], String:result[IRC_MAXLEN];
+		char oldname[128], newname[MAX_NAME_LENGTH], auth[64], result[IRC_MAXLEN];
 		GetEventString(event, "oldname", oldname, sizeof(oldname));
 		GetEventString(event, "newname", newname, sizeof(newname));
-		GetClientAuthString(client, auth, sizeof(auth));
+		GetClientAuthId(client, AuthId_Engine, auth, sizeof(auth)); //GetClientAuthString(client, auth, sizeof(auth));
 		Format(result, sizeof(result), "%t", "Changed Name", oldname, auth, userid, newname);
 		if (!StrEqual(result, ""))
 			IRC_MsgFlaggedChannels("relay", result);
@@ -142,20 +145,20 @@ public Action:Event_PlayerChangeName(Handle:event, const String:name[], bool:don
 }
 
 public OnMapEnd() {
-	IRC_MsgFlaggedChannels("relay", "%t", "Map Changing");
+	IRC_MsgFlaggedChannels("detail", "%t", "Map Changing");
 }
 
 public OnMapStart() {
-	decl String:map[128];
+	char map[128];
 	GetCurrentMap(map, sizeof(map));
-	IRC_MsgFlaggedChannels("relay", "%t", "Map Changed", map);
+	IRC_MsgFlaggedChannels("detail", "%t", "Map Changed", map);
 }
 
-public Action:Event_PRIVMSG(const String:hostmask[], args) {
-	decl String:channel[64];
+public Action Event_PRIVMSG(const char[] hostmask, args) {
+	char channel[64];
 	IRC_GetEventArg(1, channel, sizeof(channel));
 	if (IRC_ChannelHasFlag(channel, "relay")) {
-		decl String:nick[IRC_NICK_MAXLEN], String:text[IRC_MAXLEN];
+		char nick[IRC_NICK_MAXLEN], text[IRC_MAXLEN];
 		IRC_GetNickFromHostMask(hostmask, nick, sizeof(nick));
 		IRC_GetEventArg(2, text, sizeof(text));
 		if (!strncmp(text, "\x01ACTION ", 8) && text[strlen(text)-1] == '\x01') {
@@ -175,5 +178,3 @@ public Action:Event_PRIVMSG(const String:hostmask[], args) {
 public OnPluginEnd() {
 	IRC_CleanUp();
 }
-
-// http://bit.ly/defcon
