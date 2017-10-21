@@ -22,6 +22,7 @@
 new g_userid = 0;
 
 new bool:g_isteam = false;
+new bool:g_bShowIRC[MAXPLAYERS+1];
 
 public Plugin:myinfo = {
 	name = "SourceIRC -> Relay All",
@@ -40,6 +41,7 @@ public OnPluginStart() {
 	RegConsoleCmd("say", Command_Say);
 	RegConsoleCmd("say2", Command_Say);
 	RegConsoleCmd("say_team", Command_SayTeam);
+	RegConsoleCmd("sm_irc", cmdIRC, "Toggles IRC chat");
 
 	LoadTranslations("sourceirc.phrases");
 }
@@ -52,6 +54,10 @@ public OnAllPluginsLoaded() {
 public OnLibraryAdded(const String:name[]) {
 	if (StrEqual(name, "sourceirc"))
 		IRC_Loaded();
+}
+
+public OnClientDisconnect(iClient) {
+  	g_bShowIRC[iClient] = true;
 }
 
 IRC_Loaded() {
@@ -146,6 +152,11 @@ public OnMapEnd() {
 }
 
 public OnMapStart() {
+
+	for (int i=1; i<=MAXPLAYERS; i++) {
+        g_bShowIRC[i] = true;
+    }
+	
 	decl String:map[128];
 	GetCurrentMap(map, sizeof(map));
 	IRC_MsgFlaggedChannels("relay", "%t", "Map Changed", map);
@@ -162,14 +173,35 @@ public Action:Event_PRIVMSG(const String:hostmask[], args) {
 			text[strlen(text)-1] = '\x00';
 			IRC_Strip(text, sizeof(text)); // Strip IRC Color Codes
 			IRC_StripGame(text, sizeof(text)); // Strip Game color codes
-			PrintToChatAll("\x01[\x04IRC\x01] * %s %s", nick, text[7]);
+			
+			for (new i=1; i<=MaxClients; i++) {
+				if (IsClientInGame(i) && !IsFakeClient(i) && g_bShowIRC[i]) {
+				PrintToChatAll("\x01[\x04IRC\x01] * %s %s", nick, text[7]);
+				}
+			}
 		}
 		else {
 			IRC_Strip(text, sizeof(text)); // Strip IRC Color Codes
 			IRC_StripGame(text, sizeof(text)); // Strip Game color codes
-			PrintToChatAll("\x01[\x04IRC\x01] %s :  %s", nick, text);
+			
+			for (new i=1; i<=MaxClients; i++) {
+				if (IsClientInGame(i) && !IsFakeClient(i) && g_bShowIRC[i]) {
+				PrintToChatAll("\x01[\x04IRC\x01] %s :  %s", nick, text);
+				}
+			}
 		}
 	}
+}
+
+public Action:cmdIRC(iClient, iArgC) {
+    g_bShowIRC[iClient] = !g_bShowIRC[iClient]; // Flip boolean
+    if (g_bShowIRC[iClient]) {
+        ReplyToCommand(iClient, "[SourceIRC] Now listening to IRC chat");
+    } else {
+        ReplyToCommand(iClient, "[SourceIRC] Stopped listening to IRC chat");
+    }
+    
+    return Plugin_Handled;
 }
 
 public OnPluginEnd() {
