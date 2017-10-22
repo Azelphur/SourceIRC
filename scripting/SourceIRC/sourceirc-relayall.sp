@@ -24,6 +24,7 @@ new g_userid = 0;
 new bool:g_isteam = false;
 new bool:g_bShowIRC[MAXPLAYERS+1];
 new Handle:g_cvAllowHide;
+new Handle:g_cvAllowFilter;
 
 public Plugin:myinfo = {
 	name = "SourceIRC -> Relay All",
@@ -44,6 +45,7 @@ public OnPluginStart() {
 	RegConsoleCmd("say_team", Command_SayTeam);
 	RegConsoleCmd("sm_irc", cmdIRC, "Toggles IRC chat");
 	g_cvAllowHide = CreateConVar("irc_allow_hide", "0", "Sets whether players can hide IRC chat", FCVAR_NOTIFY);
+	g_cvAllowFilter = CreateConVar("irc_allow_filter", "0", "Sets whether IRC filters sentences beginning with !", FCVAR_NOTIFY);
 	
 	LoadTranslations("sourceirc.phrases");
 }
@@ -83,8 +85,10 @@ public Action:Event_PlayerSay(Handle:event, const String:name[], bool:dontBroadc
 	decl String:result[IRC_MAXLEN], String:message[256];
 	result[0] = '\0';
 	GetEventString(event, "text", message, sizeof(message));
-	if (message[0] == '!') {
-		return Plugin_Continue;
+	if (GetConVarBool(g_cvAllowFilter)) {
+		if (message[0] == '!') {
+			return Plugin_Continue;
+		}
 	}
 	if (client != 0 && !IsPlayerAlive(client))
 		StrCat(result, sizeof(result), "*DEAD* ");
@@ -202,11 +206,10 @@ public Action:cmdIRC(iClient, iArgC) {
 		g_bShowIRC[iClient] = !g_bShowIRC[iClient]; // Flip boolean
 		if (g_bShowIRC[iClient]) {
 			ReplyToCommand(iClient, "[SourceIRC] Now listening to IRC chat");
-		} 
-		else {
+		} else {
 			ReplyToCommand(iClient, "[SourceIRC] Stopped listening to IRC chat");
 		}
-	}
+    }
 	else {
 		PrintToChat(iClient, "\x01[\x04IRC\x01] IRC Hide not allowed for this server");
 	}
