@@ -23,6 +23,7 @@ new g_userid = 0;
 
 new bool:g_isteam = false;
 new bool:g_bShowIRC[MAXPLAYERS+1];
+new Handle:g_cvAllowHide;
 
 public Plugin:myinfo = {
 	name = "SourceIRC -> Relay All",
@@ -42,7 +43,8 @@ public OnPluginStart() {
 	RegConsoleCmd("say2", Command_Say);
 	RegConsoleCmd("say_team", Command_SayTeam);
 	RegConsoleCmd("sm_irc", cmdIRC, "Toggles IRC chat");
-
+	g_cvAllowHide = CreateConVar("irc_allow_hide", "0", "Sets whether players can hide IRC chat", FCVAR_NOTIFY);
+	
 	LoadTranslations("sourceirc.phrases");
 }
 
@@ -81,11 +83,13 @@ public Action:Event_PlayerSay(Handle:event, const String:name[], bool:dontBroadc
 	decl String:result[IRC_MAXLEN], String:message[256];
 	result[0] = '\0';
 	GetEventString(event, "text", message, sizeof(message));
+	if (message[0] == '!') {
+		return Plugin_Continue;
+	}
 	if (client != 0 && !IsPlayerAlive(client))
 		StrCat(result, sizeof(result), "*DEAD* ");
 	if (g_isteam)
-		StrCat(result, sizeof(result), "(TEAM) ");
-		
+		StrCat(result, sizeof(result), "(TEAM) ");		
 	new team
 	if (client != 0)
 		team = IRC_GetTeamColor(GetClientTeam(client));
@@ -176,7 +180,7 @@ public Action:Event_PRIVMSG(const String:hostmask[], args) {
 			
 			for (new i=1; i<=MaxClients; i++) {
 				if (IsClientInGame(i) && !IsFakeClient(i) && g_bShowIRC[i]) {
-				PrintToChatAll("\x01[\x04IRC\x01] * %s %s", nick, text[7]);
+				PrintToChat(i, "\x01[\x04IRC\x01] * %s %s", nick, text[7]);
 				}
 			}
 		}
@@ -186,7 +190,7 @@ public Action:Event_PRIVMSG(const String:hostmask[], args) {
 			
 			for (new i=1; i<=MaxClients; i++) {
 				if (IsClientInGame(i) && !IsFakeClient(i) && g_bShowIRC[i]) {
-				PrintToChatAll("\x01[\x04IRC\x01] %s :  %s", nick, text);
+				PrintToChat(i, "\x01[\x04IRC\x01] %s :  %s", nick, text);
 				}
 			}
 		}
@@ -194,14 +198,18 @@ public Action:Event_PRIVMSG(const String:hostmask[], args) {
 }
 
 public Action:cmdIRC(iClient, iArgC) {
-    g_bShowIRC[iClient] = !g_bShowIRC[iClient]; // Flip boolean
-    if (g_bShowIRC[iClient]) {
-        ReplyToCommand(iClient, "[SourceIRC] Now listening to IRC chat");
-    } else {
-        ReplyToCommand(iClient, "[SourceIRC] Stopped listening to IRC chat");
+	if (GetConVarBool(g_cvAllowHide)) {
+		g_bShowIRC[iClient] = !g_bShowIRC[iClient]; // Flip boolean
+		if (g_bShowIRC[iClient]) {
+			ReplyToCommand(iClient, "[SourceIRC] Now listening to IRC chat");
+		} else {
+			ReplyToCommand(iClient, "[SourceIRC] Stopped listening to IRC chat");
+		}
     }
-    
-    return Plugin_Handled;
+	else {
+		PrintToChat(iClient, "\x01[\x04IRC\x01] IRC Hide not allowed for this server");
+	}
+	return Plugin_Handled;
 }
 
 public OnPluginEnd() {
