@@ -25,6 +25,7 @@ new bool:g_isteam = false;
 new bool:g_bShowIRC[MAXPLAYERS+1];
 new Handle:g_cvAllowHide;
 new Handle:g_cvAllowFilter;
+new Handle:g_cvHideDisconnect
 
 public Plugin:myinfo = {
 	name = "SourceIRC -> Relay All",
@@ -46,6 +47,7 @@ public OnPluginStart() {
 	RegConsoleCmd("sm_irc", cmdIRC, "Toggles IRC chat");
 	g_cvAllowHide = CreateConVar("irc_allow_hide", "0", "Sets whether players can hide IRC chat", FCVAR_NOTIFY);
 	g_cvAllowFilter = CreateConVar("irc_allow_filter", "0", "Sets whether IRC filters sentences beginning with !", FCVAR_NOTIFY);
+	g_cvHideDisconnect = CreateConVar("irc_disconnect_filter", "0", "Sets whether IRC filters disconnect messages", FCVAR_NOTIFY);
 	
 	LoadTranslations("sourceirc.phrases");
 }
@@ -122,21 +124,23 @@ public void OnClientAuthorized(client, const String:auth[]) { // We are hooking 
 }
 
 public Action:Event_PlayerDisconnect(Handle:event, const String:name[], bool:dontBroadcast)
-{
-	new userid = GetEventInt(event, "userid");
-	new client = GetClientOfUserId(userid);
-	if (client != 0) {
-		decl String:reason[128], String:playername[MAX_NAME_LENGTH], String:auth[64], String:result[IRC_MAXLEN];
-		GetEventString(event, "reason", reason, sizeof(reason));
-		GetClientName(client, playername, sizeof(playername));
-		GetClientAuthString(client, auth, sizeof(auth));
-		for (new i = 0; i <= strlen(reason); i++) { // For some reason, certain disconnect reasons have \n in them, so i'm stripping them. Silly valve.
-			if (reason[i] == '\n')
-				RemoveChar(reason, sizeof(reason), i);
+{	
+	if (!GetConVarBool(g_cvHideDisconnect)) {
+		new userid = GetEventInt(event, "userid");
+		new client = GetClientOfUserId(userid);
+		if (client != 0) {
+			decl String:reason[128], String:playername[MAX_NAME_LENGTH], String:auth[64], String:result[IRC_MAXLEN];
+			GetEventString(event, "reason", reason, sizeof(reason));
+			GetClientName(client, playername, sizeof(playername));
+			GetClientAuthString(client, auth, sizeof(auth));
+			for (new i = 0; i <= strlen(reason); i++) { // For some reason, certain disconnect reasons have \n in them, so i'm stripping them. Silly valve.
+				if (reason[i] == '\n')
+					RemoveChar(reason, sizeof(reason), i);
+			}
+			Format(result, sizeof(result), "%t", "Player Disconnected", playername, auth, userid, reason);
+			if (!StrEqual(result, ""))
+				IRC_MsgFlaggedChannels("relay", result);
 		}
-		Format(result, sizeof(result), "%t", "Player Disconnected", playername, auth, userid, reason);
-		if (!StrEqual(result, ""))
-			IRC_MsgFlaggedChannels("relay", result);
 	}
 }
 
