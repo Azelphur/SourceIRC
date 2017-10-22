@@ -202,10 +202,11 @@ public Action:cmdIRC(iClient, iArgC) {
 		g_bShowIRC[iClient] = !g_bShowIRC[iClient]; // Flip boolean
 		if (g_bShowIRC[iClient]) {
 			ReplyToCommand(iClient, "[SourceIRC] Now listening to IRC chat");
-		} else {
+		} 
+		else {
 			ReplyToCommand(iClient, "[SourceIRC] Stopped listening to IRC chat");
 		}
-    }
+	}
 	else {
 		PrintToChat(iClient, "\x01[\x04IRC\x01] IRC Hide not allowed for this server");
 	}
