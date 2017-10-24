@@ -22,6 +22,10 @@
 new g_userid = 0;
 
 new bool:g_isteam = false;
+new bool:g_bShowIRC[MAXPLAYERS+1];
+new Handle:g_cvAllowHide;
+new Handle:g_cvAllowFilter;
+new Handle:g_cvHideDisconnect
 
 public Plugin:myinfo = {
 	name = "SourceIRC -> Relay All",
@@ -40,7 +44,11 @@ public OnPluginStart() {
 	RegConsoleCmd("say", Command_Say);
 	RegConsoleCmd("say2", Command_Say);
 	RegConsoleCmd("say_team", Command_SayTeam);
-
+	RegConsoleCmd("sm_irc", cmdIRC, "Toggles IRC chat");
+	g_cvAllowHide = CreateConVar("irc_allow_hide", "0", "Sets whether players can hide IRC chat", FCVAR_NOTIFY);
+	g_cvAllowFilter = CreateConVar("irc_allow_filter", "0", "Sets whether IRC filters sentences beginning with !", FCVAR_NOTIFY);
+	g_cvHideDisconnect = CreateConVar("irc_disconnect_filter", "0", "Sets whether IRC filters disconnect messages", FCVAR_NOTIFY);
+	
 	LoadTranslations("sourceirc.phrases");
 }
 
@@ -52,6 +60,10 @@ public OnAllPluginsLoaded() {
 public OnLibraryAdded(const String:name[]) {
 	if (StrEqual(name, "sourceirc"))
 		IRC_Loaded();
+}
+
+public OnClientDisconnect(iClient) {
+  	g_bShowIRC[iClient] = true;
 }
 
 IRC_Loaded() {
@@ -75,11 +87,15 @@ public Action:Event_PlayerSay(Handle:event, const String:name[], bool:dontBroadc
 	decl String:result[IRC_MAXLEN], String:message[256];
 	result[0] = '\0';
 	GetEventString(event, "text", message, sizeof(message));
+	if (GetConVarBool(g_cvAllowFilter)) {
+		if (message[0] == '!') {
+			return Plugin_Continue;
+		}
+	}
 	if (client != 0 && !IsPlayerAlive(client))
 		StrCat(result, sizeof(result), "*DEAD* ");
 	if (g_isteam)
-		StrCat(result, sizeof(result), "(TEAM) ");
-		
+		StrCat(result, sizeof(result), "(TEAM) ");		
 	new team
 	if (client != 0)
 		team = IRC_GetTeamColor(GetClientTeam(client));
@@ -108,21 +124,23 @@ public void OnClientAuthorized(client, const String:auth[]) { // We are hooking 
 }
 
 public Action:Event_PlayerDisconnect(Handle:event, const String:name[], bool:dontBroadcast)
-{
-	new userid = GetEventInt(event, "userid");
-	new client = GetClientOfUserId(userid);
-	if (client != 0) {
-		decl String:reason[128], String:playername[MAX_NAME_LENGTH], String:auth[64], String:result[IRC_MAXLEN];
-		GetEventString(event, "reason", reason, sizeof(reason));
-		GetClientName(client, playername, sizeof(playername));
-		GetClientAuthString(client, auth, sizeof(auth));
-		for (new i = 0; i <= strlen(reason); i++) { // For some reason, certain disconnect reasons have \n in them, so i'm stripping them. Silly valve.
-			if (reason[i] == '\n')
-				RemoveChar(reason, sizeof(reason), i);
+{	
+	if (!GetConVarBool(g_cvHideDisconnect)) {
+		new userid = GetEventInt(event, "userid");
+		new client = GetClientOfUserId(userid);
+		if (client != 0) {
+			decl String:reason[128], String:playername[MAX_NAME_LENGTH], String:auth[64], String:result[IRC_MAXLEN];
+			GetEventString(event, "reason", reason, sizeof(reason));
+			GetClientName(client, playername, sizeof(playername));
+			GetClientAuthString(client, auth, sizeof(auth));
+			for (new i = 0; i <= strlen(reason); i++) { // For some reason, certain disconnect reasons have \n in them, so i'm stripping them. Silly valve.
+				if (reason[i] == '\n')
+					RemoveChar(reason, sizeof(reason), i);
+			}
+			Format(result, sizeof(result), "%t", "Player Disconnected", playername, auth, userid, reason);
+			if (!StrEqual(result, ""))
+				IRC_MsgFlaggedChannels("relay", result);
 		}
-		Format(result, sizeof(result), "%t", "Player Disconnected", playername, auth, userid, reason);
-		if (!StrEqual(result, ""))
-			IRC_MsgFlaggedChannels("relay", result);
 	}
 }
 
@@ -146,6 +164,11 @@ public OnMapEnd() {
 }
 
 public OnMapStart() {
+
+	for (int i=1; i<=MAXPLAYERS; i++) {
+        g_bShowIRC[i] = true;
+    }
+	
 	decl String:map[128];
 	GetCurrentMap(map, sizeof(map));
 	IRC_MsgFlaggedChannels("relay", "%t", "Map Changed", map);
@@ -162,14 +185,40 @@ public Action:Event_PRIVMSG(const String:hostmask[], args) {
 			text[strlen(text)-1] = '\x00';
 			IRC_Strip(text, sizeof(text)); // Strip IRC Color Codes
 			IRC_StripGame(text, sizeof(text)); // Strip Game color codes
-			PrintToChatAll("\x01[\x04IRC\x01] * %s %s", nick, text[7]);
+			
+			for (new i=1; i<=MaxClients; i++) {
+				if (IsClientInGame(i) && !IsFakeClient(i) && g_bShowIRC[i]) {
+				PrintToChat(i, "\x01[\x04IRC\x01] * %s %s", nick, text[7]);
+				}
+			}
 		}
 		else {
 			IRC_Strip(text, sizeof(text)); // Strip IRC Color Codes
 			IRC_StripGame(text, sizeof(text)); // Strip Game color codes
-			PrintToChatAll("\x01[\x04IRC\x01] %s :  %s", nick, text);
+			
+			for (new i=1; i<=MaxClients; i++) {
+				if (IsClientInGame(i) && !IsFakeClient(i) && g_bShowIRC[i]) {
+				PrintToChat(i, "\x01[\x04IRC\x01] %s :  %s", nick, text);
+				}
+			}
 		}
 	}
+}
+
+public Action:cmdIRC(iClient, iArgC) {
+	if (GetConVarBool(g_cvAllowHide)) {
+		g_bShowIRC[iClient] = !g_bShowIRC[iClient]; // Flip boolean
+		if (g_bShowIRC[iClient]) {
+			ReplyToCommand(iClient, "[SourceIRC] Now listening to IRC chat");
+		} 
+		else {
+			ReplyToCommand(iClient, "[SourceIRC] Stopped listening to IRC chat");
+		}
+	}
+	else {
+		PrintToChat(iClient, "\x01[\x04IRC\x01] IRC Hide not allowed for this server");
+	}
+	return Plugin_Handled;
 }
 
 public OnPluginEnd() {
