@@ -169,7 +169,7 @@ public OnMapEnd() {
 }
 
 public OnMapStart() {
-	for (int i=1; i<= MaxClients; i++) {
+	for (int i = 1; i <= MaxClients; i++) {
         	g_bShowIRC[i] = true;
    	}
 	if (g_bLateLoad) {
