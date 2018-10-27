@@ -23,6 +23,7 @@ new g_userid = 0;
 
 new bool:g_isteam = false;
 new bool:g_bShowIRC[MAXPLAYERS+1];
+new bool:g_bLateLoad;
 new Handle:g_cvAllowHide;
 new Handle:g_cvAllowFilter;
 new Handle:g_cvHideDisconnect
@@ -34,6 +35,11 @@ public Plugin:myinfo = {
 	version = IRC_VERSION,
 	url = "http://azelphur.com/"
 };
+
+public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max) {
+	g_bLateLoad = late;
+	return APLRes_Success;
+}
 
 public OnPluginStart() {	
 	HookEvent("player_disconnect", Event_PlayerDisconnect, EventHookMode_Post);
@@ -79,8 +85,7 @@ public Action:Command_SayTeam(client, args) {
 	g_isteam = true; // Ugly hack to get around player_chat event not working.
 }
 
-public Action:Event_PlayerSay(Handle:event, const String:name[], bool:dontBroadcast)
-{
+public Action:Event_PlayerSay(Handle:event, const String:name[], bool:dontBroadcast) {
 	new userid = GetEventInt(event, "userid");
 	new client = GetClientOfUserId(userid);
 	
@@ -164,11 +169,12 @@ public OnMapEnd() {
 }
 
 public OnMapStart() {
-
 	for (int i=1; i<=MAXPLAYERS; i++) {
-        g_bShowIRC[i] = true;
-    }
-	
+        	g_bShowIRC[i] = true;
+   	}
+	if (g_bLateLoad) {
+		return;
+	}	
 	decl String:map[128];
 	GetCurrentMap(map, sizeof(map));
 	IRC_MsgFlaggedChannels("relay", "%t", "Map Changed", map);
