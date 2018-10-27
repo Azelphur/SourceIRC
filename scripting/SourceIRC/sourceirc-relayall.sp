@@ -165,6 +165,7 @@ public Action:Event_PlayerChangeName(Handle:event, const String:name[], bool:don
 }
 
 public OnMapEnd() {
+	g_bLateLoad = false;
 	IRC_MsgFlaggedChannels("relay", "%t", "Map Changing");
 }
 
