@@ -111,7 +111,7 @@ public Action:Event_PlayerSay(Handle:event, const String:name[], bool:dontBroadc
 	else
 		Format(result, sizeof(result), "%s\x03%02d%N\x03: %s", result, team, client, message);
 
-	IRC_MsgFlaggedChannels("relay", result);
+	IRC_MsgFlaggedChannels("relay", "%s", result);
 }
 
 
@@ -123,9 +123,8 @@ public void OnClientAuthorized(client, const String:auth[]) { // We are hooking 
 	decl String:playername[MAX_NAME_LENGTH], String:result[IRC_MAXLEN];
 	GetClientName(client, playername, sizeof(playername));
 	Format(result, sizeof(result), "%t", "Player Connected", playername, auth, userid);
-	if (!StrEqual(result, ""))
-		IRC_MsgFlaggedChannels("relay", result);
-	return;
+	if (result[0] != '\0')
+		IRC_MsgFlaggedChannels("relay", "%s", result);
 }
 
 public Action:Event_PlayerDisconnect(Handle:event, const String:name[], bool:dontBroadcast)
@@ -143,8 +142,8 @@ public Action:Event_PlayerDisconnect(Handle:event, const String:name[], bool:don
 					RemoveChar(reason, sizeof(reason), i);
 			}
 			Format(result, sizeof(result), "%t", "Player Disconnected", playername, auth, userid, reason);
-			if (!StrEqual(result, ""))
-				IRC_MsgFlaggedChannels("relay", result);
+			if (result[0] != '\0')
+				IRC_MsgFlaggedChannels("relay", "%s", result);
 		}
 	}
 }
@@ -159,8 +158,8 @@ public Action:Event_PlayerChangeName(Handle:event, const String:name[], bool:don
 		GetEventString(event, "newname", newname, sizeof(newname));
 		GetClientAuthString(client, auth, sizeof(auth));
 		Format(result, sizeof(result), "%t", "Changed Name", oldname, auth, userid, newname);
-		if (!StrEqual(result, ""))
-			IRC_MsgFlaggedChannels("relay", result);
+		if (result[0] != '\0')
+			IRC_MsgFlaggedChannels("relay", "%s", result);
 	}
 }
 
