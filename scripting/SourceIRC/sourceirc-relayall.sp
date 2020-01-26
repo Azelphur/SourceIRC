@@ -1,18 +1,18 @@
 /*
-       This file is part of SourceIRC.
+	   This file is part of SourceIRC.
 
-    SourceIRC is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+	SourceIRC is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
 
-    SourceIRC is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+	SourceIRC is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
-    along with SourceIRC.  If not, see <http://www.gnu.org/licenses/>.
+	You should have received a copy of the GNU General Public License
+	along with SourceIRC.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include <regex>
@@ -42,7 +42,7 @@ public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max) 
 	return APLRes_Success;
 }
 
-public OnPluginStart() {
+public OnPluginStart() {	
 	HookEvent("player_disconnect", Event_PlayerDisconnect, EventHookMode_Post);
 	HookEvent("player_changename", Event_PlayerChangeName, EventHookMode_Post);
 	HookEvent("player_say", Event_PlayerSay, EventHookMode_Post);
@@ -56,7 +56,7 @@ public OnPluginStart() {
 	g_cvAllowFilter = CreateConVar("irc_allow_filter", "0", "Sets whether IRC filters sentences beginning with !", FCVAR_NOTIFY);
 	g_cvHideDisconnect = CreateConVar("irc_disconnect_filter", "0", "Sets whether IRC filters disconnect messages", FCVAR_NOTIFY);
 	g_cvShowMapChanges = CreateConVar("irc_show_mapchanges", "1", "Sets whether IRC prints map changes", FCVAR_NOTIFY);
-
+	
 	LoadTranslations("sourceirc.phrases");
 }
 
@@ -71,7 +71,7 @@ public OnLibraryAdded(const String:name[]) {
 }
 
 public OnClientDisconnect(iClient) {
-  	g_bShowIRC[iClient] = true;
+	g_bShowIRC[iClient] = true;
 }
 
 IRC_Loaded() {
@@ -102,7 +102,7 @@ public Action:Event_PlayerSay(Handle:event, const String:name[], bool:dontBroadc
 	if (client != 0 && !IsPlayerAlive(client))
 		StrCat(result, sizeof(result), "*DEAD* ");
 	if (g_isteam)
-		StrCat(result, sizeof(result), "(TEAM) ");
+		StrCat(result, sizeof(result), "(TEAM) ");		
 	new team
 	if (client != 0)
 		team = IRC_GetTeamColor(GetClientTeam(client));
@@ -113,8 +113,7 @@ public Action:Event_PlayerSay(Handle:event, const String:name[], bool:dontBroadc
 	else
 		Format(result, sizeof(result), "%s\x03%02d%N\x03: %s", result, team, client, message);
 
-	IRC_MsgFlaggedChannels("relay", result);
-	return Plugin_Continue;
+	IRC_MsgFlaggedChannels("relay", "%s", result);
 }
 
 
@@ -125,10 +124,9 @@ public void OnClientAuthorized(client, const String:auth[]) { // We are hooking 
 	g_userid = userid;
 	decl String:playername[MAX_NAME_LENGTH], String:result[IRC_MAXLEN];
 	GetClientName(client, playername, sizeof(playername));
-	Format(result, sizeof(result), "%t", "Player Connected", playername, auth, userid); 
-	if (!StrEqual(result, ""))
-		IRC_MsgFlaggedChannels("relay", result);
-	return;
+	Format(result, sizeof(result), "%t", "Player Connected", playername, auth, userid);
+	if (result[0] != '\0')
+		IRC_MsgFlaggedChannels("relay", "%s", result);
 }
 
 public Action:Event_PlayerDisconnect(Handle:event, const String:name[], bool:dontBroadcast)
@@ -146,8 +144,8 @@ public Action:Event_PlayerDisconnect(Handle:event, const String:name[], bool:don
 					RemoveChar(reason, sizeof(reason), i);
 			}
 			Format(result, sizeof(result), "%t", "Player Disconnected", playername, auth, userid, reason);
-			if (!StrEqual(result, ""))
-				IRC_MsgFlaggedChannels("relay", result);
+			if (result[0] != '\0')
+				IRC_MsgFlaggedChannels("relay", "%s", result);
 		}
 	}
 }
@@ -162,8 +160,8 @@ public Action:Event_PlayerChangeName(Handle:event, const String:name[], bool:don
 		GetEventString(event, "newname", newname, sizeof(newname));
 		GetClientAuthString(client, auth, sizeof(auth));
 		Format(result, sizeof(result), "%t", "Changed Name", oldname, auth, userid, newname);
-		if (!StrEqual(result, ""))
-			IRC_MsgFlaggedChannels("relay", result);
+		if (result[0] != '\0')
+			IRC_MsgFlaggedChannels("relay", "%s", result);
 	}
 }
 
@@ -176,11 +174,11 @@ public OnMapEnd() {
 
 public OnMapStart() {
 	for (int i = 1; i <= MaxClients; i++) {
-        	g_bShowIRC[i] = true;
-   	}
+			g_bShowIRC[i] = true;
+	}
 	if (g_bLateLoad) {
 		return;
-	}
+	}	
 	if (GetConVarBool(g_cvShowMapChanges)) {
 		decl String:map[128];
 		GetCurrentMap(map, sizeof(map));
@@ -224,7 +222,7 @@ public Action:cmdIRC(iClient, iArgC) {
 		g_bShowIRC[iClient] = !g_bShowIRC[iClient]; // Flip boolean
 		if (g_bShowIRC[iClient]) {
 			ReplyToCommand(iClient, "[SourceIRC] Now listening to IRC chat");
-		}
+		} 
 		else {
 			ReplyToCommand(iClient, "[SourceIRC] Stopped listening to IRC chat");
 		}
