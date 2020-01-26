@@ -1,18 +1,18 @@
 /*
-       This file is part of SourceIRC.
+	   This file is part of SourceIRC.
 
-    SourceIRC is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+	SourceIRC is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
 
-    SourceIRC is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+	SourceIRC is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
-    along with SourceIRC.  If not, see <http://www.gnu.org/licenses/>.
+	You should have received a copy of the GNU General Public License
+	along with SourceIRC.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include <regex>
@@ -26,7 +26,8 @@ new bool:g_bShowIRC[MAXPLAYERS+1];
 new bool:g_bLateLoad;
 new Handle:g_cvAllowHide;
 new Handle:g_cvAllowFilter;
-new Handle:g_cvHideDisconnect
+new Handle:g_cvHideDisconnect;
+new Handle:g_cvShowMapChanges;
 
 public Plugin:myinfo = {
 	name = "SourceIRC -> Relay All",
@@ -54,6 +55,7 @@ public OnPluginStart() {
 	g_cvAllowHide = CreateConVar("irc_allow_hide", "0", "Sets whether players can hide IRC chat", FCVAR_NOTIFY);
 	g_cvAllowFilter = CreateConVar("irc_allow_filter", "0", "Sets whether IRC filters sentences beginning with !", FCVAR_NOTIFY);
 	g_cvHideDisconnect = CreateConVar("irc_disconnect_filter", "0", "Sets whether IRC filters disconnect messages", FCVAR_NOTIFY);
+	g_cvShowMapChanges = CreateConVar("irc_show_mapchanges", "1", "Sets whether IRC prints map changes", FCVAR_NOTIFY);
 	
 	LoadTranslations("sourceirc.phrases");
 }
@@ -69,7 +71,7 @@ public OnLibraryAdded(const String:name[]) {
 }
 
 public OnClientDisconnect(iClient) {
-  	g_bShowIRC[iClient] = true;
+	g_bShowIRC[iClient] = true;
 }
 
 IRC_Loaded() {
@@ -165,19 +167,23 @@ public Action:Event_PlayerChangeName(Handle:event, const String:name[], bool:don
 
 public OnMapEnd() {
 	g_bLateLoad = false;
-	IRC_MsgFlaggedChannels("relay", "%t", "Map Changing");
+	if (GetConVarBool(g_cvShowMapChanges)) {
+		IRC_MsgFlaggedChannels("relay", "%t", "Map Changing");
+	}
 }
 
 public OnMapStart() {
 	for (int i = 1; i <= MaxClients; i++) {
-        	g_bShowIRC[i] = true;
-   	}
+			g_bShowIRC[i] = true;
+	}
 	if (g_bLateLoad) {
 		return;
 	}	
-	decl String:map[128];
-	GetCurrentMap(map, sizeof(map));
-	IRC_MsgFlaggedChannels("relay", "%t", "Map Changed", map);
+	if (GetConVarBool(g_cvShowMapChanges)) {
+		decl String:map[128];
+		GetCurrentMap(map, sizeof(map));
+		IRC_MsgFlaggedChannels("relay", "%t", "Map Changed", map);
+	}
 }
 
 public Action:Event_PRIVMSG(const String:hostmask[], args) {
