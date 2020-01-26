@@ -62,7 +62,7 @@ public __pl_sourceirc_SetNTVOptional()
  * @return				An Action value.  Not handling the command
  *						means that SourceIRC will report it as "Unknown Command."
  */
-functag IRCCmd Action:public(const String:nick[], args);
+typedef IRCCmd = function Action(const char[] nick, int args)
 
 /**
  * Called when an IRC event is fired.
@@ -71,8 +71,7 @@ functag IRCCmd Action:public(const String:nick[], args);
  * @param args			Number of arguments that are in the argument string.
  * @return				Only Plugin_Stop has any effect here, as this is a post hook.
  */
-
-functag IRCEvent Action:public(const String:prefix[], args);
+typedef IRCEvent = function Action(const char[] prefix, int args);
 
 /**
  * Registers a command people can use in IRC
