@@ -642,7 +642,7 @@ public N_IRC_Send(Handle:plugin, numParams) {
 	new String:buffer[IRC_MAXLEN], written;
 	FormatNativeString(0, 1, 2, sizeof(buffer), written, buffer);
 	if (StrContains(buffer, "\n") != -1 || StrContains(buffer, "\r") != -1) {
-		ThrowNativeError(1, "String contains \n or \r");
+		ThrowNativeError(1, "String contains \\n or \\r");
 		return;
 	}
 	
